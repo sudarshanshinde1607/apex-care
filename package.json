@@ -17,5 +17,8 @@
   "type": "commonjs",
   "devDependencies": {
     "concurrently": "^10.0.6"
+  },
+  "engines": {
+    "node": ">=22.0.0"
   }
 }
