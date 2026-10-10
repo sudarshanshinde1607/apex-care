@@ -39,7 +39,7 @@ app.use((err: any, req: express.Request, res: express.Response, next: express.Ne
 const clientDistPath = path.join(__dirname, '../../client/dist');
 app.use(express.static(clientDistPath));
 
-app.get('*', (req, res) => {
+app.get('/{*splat}', (req, res) => {
   res.sendFile(path.join(clientDistPath, 'index.html'));
 });
 
