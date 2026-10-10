@@ -35,11 +35,12 @@ app.use((err: any, req: express.Request, res: express.Response, next: express.Ne
   res.status(500).json({ status: 'error', message: err.message || 'Internal Server Error' });
 });
 
-// Serve client static files
+// Serve client static files (SPA fallback)
 const clientDistPath = path.join(__dirname, '../../client/dist');
 app.use(express.static(clientDistPath));
 
-app.get('/{*splat}', (req, res) => {
+// Catch-all: serve index.html for React Router
+app.use((req, res) => {
   res.sendFile(path.join(clientDistPath, 'index.html'));
 });
 
