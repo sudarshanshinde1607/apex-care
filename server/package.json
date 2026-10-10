@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "tsx watch src/index.ts",
     "build": "tsc",
-    "start": "prisma db push || true && node dist/index.js",
+    "start": "prisma db push || true && tsx src/index.ts",
     "db:push": "prisma db push",
     "db:seed": "tsx prisma/seed.ts",
     "postinstall": "prisma generate"
@@ -28,6 +28,7 @@
     "nodemailer": "^10.0.16",
     "pdfkit": "^0.20.2",
     "swagger-ui-express": "^5.0.1",
+    "tsx": "^4.23.15",
     "yamljs": "^0.3.0",
     "zod": "^4.6.5"
   },
