@@ -1,0 +1,355 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// User & Auth
+model User {
+  id        String   @id @default(uuid())
+  email     String   @unique
+  password  String
+  firstName String
+  lastName  String
+  phone     String?
+  role      String   @default("PATIENT") // Role enum: SUPER_ADMIN, DOCTOR, NURSE, RECEPTIONIST, PHARMACIST, LAB_TECHNICIAN, ACCOUNTANT, PATIENT
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  patient ProfilePatient?
+  staff   ProfileStaff?
+  doctor  ProfileDoctor?
+  
+  auditLogs AuditLog[]
+  notifications Notification[]
+}
+
+model ProfilePatient {
+  id              String   @id @default(uuid())
+  userId          String   @unique
+  user            User     @relation(fields: [userId], references: [id])
+  patientId       String   @unique // Auto-generated PAT-XXXX
+  dob             DateTime
+  gender          String
+  bloodGroup      String?
+  address         String?
+  emergencyContact String?
+  allergies       String?
+  
+  appointments    Appointment[]
+  consultations   Consultation[]
+  admissions      Admission[]
+  labOrders       LabOrder[]
+  invoices        Invoice[]
+  insuranceClaims InsuranceClaim[]
+}
+
+model ProfileStaff {
+  id              String   @id @default(uuid())
+  userId          String   @unique
+  user            User     @relation(fields: [userId], references: [id])
+  employeeId      String   @unique
+  departmentId    String?
+  department      Department? @relation(fields: [departmentId], references: [id])
+  designation     String
+  joiningDate     DateTime
+}
+
+model ProfileDoctor {
+  id              String   @id @default(uuid())
+  userId          String   @unique
+  user            User     @relation(fields: [userId], references: [id])
+  doctorId        String   @unique
+  departmentId    String
+  department      Department @relation(fields: [departmentId], references: [id])
+  specialization  String
+  qualifications  String
+  experienceYears Int
+  
+  schedules       Schedule[]
+  appointments    Appointment[]
+  consultations   Consultation[]
+  admissions      Admission[]
+}
+
+// Hospital Structure
+model Department {
+  id          String   @id @default(uuid())
+  name        String   @unique
+  description String?
+  
+  staff       ProfileStaff[]
+  doctors     ProfileDoctor[]
+  wards       Ward[]
+}
+
+model Ward {
+  id           String   @id @default(uuid())
+  name         String
+  departmentId String
+  department   Department @relation(fields: [departmentId], references: [id])
+  rooms        Room[]
+}
+
+model Room {
+  id       String   @id @default(uuid())
+  roomNo   String
+  wardId   String
+  ward     Ward     @relation(fields: [wardId], references: [id])
+  type     String   // e.g., ICU, General, Private
+  beds     Bed[]
+}
+
+model Bed {
+  id       String   @id @default(uuid())
+  bedNo    String
+  roomId   String
+  room     Room     @relation(fields: [roomId], references: [id])
+  status   String   @default("AVAILABLE") // AVAILABLE, OCCUPIED, MAINTENANCE
+  
+  admissions Admission[]
+}
+
+// Core Operations
+model Schedule {
+  id           String   @id @default(uuid())
+  doctorId     String
+  doctor       ProfileDoctor @relation(fields: [doctorId], references: [id])
+  dayOfWeek    Int      // 0 = Sunday, 1 = Monday
+  startTime    String   // HH:mm
+  endTime      String   // HH:mm
+  slotDuration Int      // In minutes
+}
+
+model Appointment {
+  id              String   @id @default(uuid())
+  patientId       String
+  patient         ProfilePatient @relation(fields: [patientId], references: [id])
+  doctorId        String
+  doctor          ProfileDoctor @relation(fields: [doctorId], references: [id])
+  appointmentDate DateTime
+  status          String   @default("SCHEDULED") // SCHEDULED, CHECKED_IN, COMPLETED, CANCELLED, NO_SHOW
+  reason          String?
+  
+  consultation    Consultation?
+}
+
+model Consultation {
+  id            String   @id @default(uuid())
+  appointmentId String   @unique
+  appointment   Appointment @relation(fields: [appointmentId], references: [id])
+  patientId     String
+  patient       ProfilePatient @relation(fields: [patientId], references: [id])
+  doctorId      String
+  doctor        ProfileDoctor @relation(fields: [doctorId], references: [id])
+  symptoms      String?
+  diagnosis     String?
+  notes         String?
+  followUpDate  DateTime?
+  
+  vitals        Vitals?
+  prescription  Prescription?
+}
+
+model Vitals {
+  id             String   @id @default(uuid())
+  consultationId String   @unique
+  consultation   Consultation @relation(fields: [consultationId], references: [id])
+  bloodPressure  String?  // e.g., 120/80
+  pulse          Int?
+  temperature    Float?
+  spO2           Float?
+  weight         Float?
+  height         Float?
+  bmi            Float?
+}
+
+model Prescription {
+  id             String   @id @default(uuid())
+  consultationId String   @unique
+  consultation   Consultation @relation(fields: [consultationId], references: [id])
+  instructions   String?
+  items          PrescriptionItem[]
+}
+
+model PrescriptionItem {
+  id             String   @id @default(uuid())
+  prescriptionId String
+  prescription   Prescription @relation(fields: [prescriptionId], references: [id])
+  medicineId     String
+  medicine       Medicine @relation(fields: [medicineId], references: [id])
+  dosage         String   // e.g., 1-0-1
+  duration       Int      // Days
+  instructions   String?
+}
+
+model Admission {
+  id            String   @id @default(uuid())
+  patientId     String
+  patient       ProfilePatient @relation(fields: [patientId], references: [id])
+  doctorId      String
+  doctor        ProfileDoctor @relation(fields: [doctorId], references: [id])
+  bedId         String
+  bed           Bed      @relation(fields: [bedId], references: [id])
+  admissionDate DateTime @default(now())
+  dischargeDate DateTime?
+  reason        String
+  status        String   @default("ADMITTED") // ADMITTED, DISCHARGED, TRANSFERRED
+  dischargeSummary String?
+}
+
+// Pharmacy
+model Medicine {
+  id           String   @id @default(uuid())
+  name         String
+  genericName  String?
+  category     String
+  manufacturer String?
+  unitPrice    Float
+  
+  batches           MedicineBatch[]
+  prescriptionItems PrescriptionItem[]
+}
+
+model MedicineBatch {
+  id           String   @id @default(uuid())
+  medicineId   String
+  medicine     Medicine @relation(fields: [medicineId], references: [id])
+  supplierId   String
+  supplier     Supplier @relation(fields: [supplierId], references: [id])
+  batchNo      String
+  manufactureDate DateTime
+  expiryDate   DateTime
+  quantity     Int
+}
+
+model Supplier {
+  id           String   @id @default(uuid())
+  name         String
+  contact      String
+  address      String?
+  
+  batches      MedicineBatch[]
+}
+
+// Lab
+model LabTest {
+  id          String   @id @default(uuid())
+  name        String
+  description String?
+  price       Float
+  
+  orders      LabOrder[]
+}
+
+model LabOrder {
+  id          String   @id @default(uuid())
+  patientId   String
+  patient     ProfilePatient @relation(fields: [patientId], references: [id])
+  testId      String
+  test        LabTest  @relation(fields: [testId], references: [id])
+  orderDate   DateTime @default(now())
+  status      String   @default("PENDING") // PENDING, SAMPLE_COLLECTED, COMPLETED, CANCELLED
+  
+  result      LabResult?
+}
+
+model LabResult {
+  id          String   @id @default(uuid())
+  orderId     String   @unique
+  order       LabOrder @relation(fields: [orderId], references: [id])
+  resultData  String   // JSON or text
+  reportUrl   String?
+  enteredDate DateTime @default(now())
+}
+
+// Billing & Insurance
+model Invoice {
+  id          String   @id @default(uuid())
+  invoiceNo   String   @unique
+  patientId   String
+  patient     ProfilePatient @relation(fields: [patientId], references: [id])
+  totalAmount Float
+  taxAmount   Float    @default(0)
+  discount    Float    @default(0)
+  netAmount   Float
+  status      String   @default("UNPAID") // UNPAID, PARTIAL, PAID, CANCELLED
+  issueDate   DateTime @default(now())
+  dueDate     DateTime?
+  
+  items       InvoiceItem[]
+  payments    Payment[]
+}
+
+model InvoiceItem {
+  id          String   @id @default(uuid())
+  invoiceId   String
+  invoice     Invoice  @relation(fields: [invoiceId], references: [id])
+  description String
+  quantity    Int
+  unitPrice   Float
+  total       Float
+}
+
+model Payment {
+  id            String   @id @default(uuid())
+  invoiceId     String
+  invoice       Invoice  @relation(fields: [invoiceId], references: [id])
+  amount        Float
+  paymentMethod String // CASH, CARD, UPI, INSURANCE, BANK_TRANSFER
+  paymentDate   DateTime @default(now())
+  transactionId String?
+}
+
+model InsuranceProvider {
+  id          String   @id @default(uuid())
+  name        String
+  contactInfo String?
+  
+  claims      InsuranceClaim[]
+}
+
+model InsuranceClaim {
+  id          String   @id @default(uuid())
+  patientId   String
+  patient     ProfilePatient @relation(fields: [patientId], references: [id])
+  providerId  String
+  provider    InsuranceProvider @relation(fields: [providerId], references: [id])
+  claimAmount Float
+  status      String   @default("SUBMITTED") // SUBMITTED, APPROVED, REJECTED, SETTLED
+  submissionDate DateTime @default(now())
+}
+
+// System & Logging
+model Notification {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  title     String
+  message   String
+  isRead    Boolean  @default(false)
+  createdAt DateTime @default(now())
+}
+
+model AuditLog {
+  id        String   @id @default(uuid())
+  userId    String?
+  user      User?    @relation(fields: [userId], references: [id])
+  action    String   // e.g., CREATE_PATIENT, LOGIN
+  entity    String?  // e.g., Patient, Appointment
+  entityId  String?
+  details   String?  // JSON stringified details
+  createdAt DateTime @default(now())
+}
+
+model Document {
+  id        String   @id @default(uuid())
+  title     String
+  fileUrl   String
+  entityType String  // e.g., PATIENT, CONSULTATION
+  entityId   String
+  createdAt DateTime @default(now())
+}
