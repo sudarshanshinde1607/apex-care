@@ -3,10 +3,9 @@ import { seedDatabase } from '../src/utils/seed';
 
 const prisma = new PrismaClient();
 
-seedDatabase(prisma, true)
+seedDatabase(prisma, false)
   .catch((e) => {
-    console.error(e);
-    process.exit(1);
+    console.error('Seed error:', e);
   })
   .finally(async () => {
     await prisma.$disconnect();

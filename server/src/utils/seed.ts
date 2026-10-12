@@ -48,21 +48,41 @@ export async function seedDatabase(dbClient?: PrismaClient, cleanFirst = false) 
 
   // DEPARTMENTS
   console.log('Creating departments...');
-  const depts = await Promise.all([
-    prisma.department.create({ data: { name: 'Cardiology', description: 'Heart and cardiovascular diseases' } }),
-    prisma.department.create({ data: { name: 'Neurology', description: 'Disorders of the nervous system' } }),
-    prisma.department.create({ data: { name: 'Orthopedics', description: 'Bone, joint and muscle disorders' } }),
-    prisma.department.create({ data: { name: 'Pediatrics', description: 'Medical care for children and infants' } }),
-    prisma.department.create({ data: { name: 'Dermatology', description: 'Skin, hair and nail disorders' } }),
-    prisma.department.create({ data: { name: 'Gynecology', description: "Women's reproductive health" } }),
-    prisma.department.create({ data: { name: 'Emergency', description: 'Acute and emergency care' } }),
-    prisma.department.create({ data: { name: 'General Medicine', description: 'General health assessment and primary care' } }),
-  ]);
+  const deptDefs = [
+    { name: 'Cardiology', description: 'Heart and cardiovascular diseases' },
+    { name: 'Neurology', description: 'Disorders of the nervous system' },
+    { name: 'Orthopedics', description: 'Bone, joint and muscle disorders' },
+    { name: 'Pediatrics', description: 'Medical care for children and infants' },
+    { name: 'Dermatology', description: 'Skin, hair and nail disorders' },
+    { name: 'Gynecology', description: "Women's reproductive health" },
+    { name: 'Emergency', description: 'Acute and emergency care' },
+    { name: 'General Medicine', description: 'General health assessment and primary care' },
+  ];
+  const depts = await Promise.all(
+    deptDefs.map(d =>
+      prisma.department.upsert({
+        where: { name: d.name },
+        update: {},
+        create: d,
+      })
+    )
+  );
   const [cardioDept, neuroDept, orthoDept, pediatricsDept, dermaDept, gynoDept, emergencyDept, generalDept] = depts;
 
   // ADMIN & STAFF
   console.log('Creating staff...');
-  await prisma.user.create({ data: { email: 'admin@hms.com', password: hashedPassword, firstName: 'Super', lastName: 'Admin', phone: '1111111111', role: 'SUPER_ADMIN' } });
+  await prisma.user.upsert({
+    where: { email: 'admin@hms.com' },
+    update: { password: hashedPassword },
+    create: {
+      email: 'admin@hms.com',
+      password: hashedPassword,
+      firstName: 'Super',
+      lastName: 'Admin',
+      phone: '1111111111',
+      role: 'SUPER_ADMIN'
+    }
+  });
 
   const nurseSetups = [
     { email: 'nurse1@hms.com', firstName: 'Alice', lastName: 'Williams', phone: '3333333301', empId: 'EMP-N01', deptId: cardioDept.id, designation: 'Senior Nurse' },
