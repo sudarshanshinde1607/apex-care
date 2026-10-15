@@ -10,8 +10,22 @@ export const getInvoices = async (req: Request, res: Response): Promise<void> =>
   try {
     const { patientId, status, page = '1', limit = '20' } = req.query;
     const skip = (parseInt(page as string) - 1) * parseInt(limit as string);
+    const currentUser = (req as any).user;
     const where: any = {};
-    if (patientId) where.patientId = patientId;
+
+    if (currentUser?.role === 'PATIENT') {
+      const patientProfile = await prisma.profilePatient.findUnique({
+        where: { userId: currentUser.id }
+      });
+      if (!patientProfile) {
+        res.json({ invoices: [], total: 0 });
+        return;
+      }
+      where.patientId = patientProfile.id;
+    } else if (patientId) {
+      where.patientId = patientId as string;
+    }
+
     if (status) where.status = status;
 
     const [invoices, total] = await Promise.all([
@@ -139,6 +153,99 @@ export const getDashboardStats = async (req: Request, res: Response): Promise<vo
     const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate());
     const todayEnd = new Date(todayStart.getTime() + 86400000);
 
+    const currentUser = (req as any).user;
+
+    // If logged in as a patient, return their personalized health & care overview
+    if (currentUser?.role === 'PATIENT') {
+      const patientProfile = await prisma.profilePatient.findUnique({
+        where: { userId: currentUser.id },
+        include: {
+          vitals: { orderBy: { recordedAt: 'desc' }, take: 1 },
+          admissions: { where: { status: 'ADMITTED' }, take: 1, include: { bed: { include: { room: { include: { ward: true } } } } } },
+        }
+      });
+
+      if (!patientProfile) {
+        res.json({
+          isPatient: true,
+          upcomingAppointments: 0,
+          prescriptionsCount: 0,
+          pendingLabResults: 0,
+          unpaidInvoices: 0,
+          recentAppointments: [],
+          recentConsultations: [],
+          latestVitals: null,
+          currentAdmission: null
+        });
+        return;
+      }
+
+      const pId = patientProfile.id;
+
+      const [
+        upcomingAppointmentsCount,
+        prescriptionsCount,
+        pendingLabResultsCount,
+        unpaidInvoicesCount,
+        recentAppointments,
+        recentConsultations
+      ] = await Promise.all([
+        prisma.appointment.count({
+          where: {
+            patientId: pId,
+            appointmentDate: { gte: todayStart },
+            status: { in: ['SCHEDULED', 'CHECKED_IN'] }
+          }
+        }),
+        prisma.prescription.count({
+          where: { consultation: { patientId: pId } }
+        }),
+        prisma.labOrder.count({
+          where: { patientId: pId, status: { in: ['PENDING', 'SAMPLE_COLLECTED'] } }
+        }),
+        prisma.invoice.count({
+          where: { patientId: pId, status: { in: ['UNPAID', 'PARTIAL'] } }
+        }),
+        prisma.appointment.findMany({
+          where: { patientId: pId },
+          take: 4,
+          orderBy: { appointmentDate: 'desc' },
+          include: {
+            doctor: { include: { user: { select: { firstName: true, lastName: true } }, department: true } }
+          }
+        }),
+        prisma.consultation.findMany({
+          where: { patientId: pId },
+          take: 3,
+          orderBy: { id: 'desc' },
+          include: {
+            doctor: { include: { user: { select: { firstName: true, lastName: true } }, department: true } },
+            prescription: { include: { items: { include: { medicine: true } } } }
+          }
+        })
+      ]);
+
+      res.json({
+        isPatient: true,
+        patientProfile: {
+          id: patientProfile.id,
+          patientId: patientProfile.patientId,
+          bloodGroup: patientProfile.bloodGroup,
+          allergies: patientProfile.allergies,
+          emergencyContact: patientProfile.emergencyContact,
+        },
+        upcomingAppointments: upcomingAppointmentsCount,
+        prescriptionsCount,
+        pendingLabResults: pendingLabResultsCount,
+        unpaidInvoices: unpaidInvoicesCount,
+        recentAppointments,
+        recentConsultations,
+        latestVitals: patientProfile.vitals?.[0] || null,
+        currentAdmission: patientProfile.admissions?.[0] || null
+      });
+      return;
+    }
+
     const [
       totalPatients,
       todayAppointments,
@@ -168,6 +275,7 @@ export const getDashboardStats = async (req: Request, res: Response): Promise<vo
     ]);
 
     res.json({
+      isPatient: false,
       totalPatients,
       todayAppointments,
       totalRevenue: totalRevenue._sum.netAmount ?? 0,

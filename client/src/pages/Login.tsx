@@ -5,7 +5,7 @@ import * as z from 'zod';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { fetchApi } from '../lib/api';
-import { Activity, ShieldCheck, Stethoscope, UserCheck, RefreshCw, Database } from 'lucide-react';
+import { Activity, ShieldCheck, Stethoscope, UserCheck, RefreshCw, Database, User } from 'lucide-react';
 
 const loginSchema = z.object({
   email: z.string().email({ message: 'Invalid email address' }),
@@ -16,6 +16,7 @@ type LoginFormValues = z.infer<typeof loginSchema>;
 
 const DEMO_ACCOUNTS = [
   { role: 'Admin', email: 'admin@hms.com', label: 'Super Admin', icon: ShieldCheck, color: 'text-purple-600 bg-purple-50 hover:bg-purple-100 border-purple-200' },
+  { role: 'Patient', email: 'patient1@hms.com', label: 'Patient (Ravi)', icon: User, color: 'text-rose-600 bg-rose-50 hover:bg-rose-100 border-rose-200' },
   { role: 'Doctor', email: 'doctor1@hms.com', label: 'Cardiologist', icon: Stethoscope, color: 'text-blue-600 bg-blue-50 hover:bg-blue-100 border-blue-200' },
   { role: 'Nurse', email: 'nurse1@hms.com', label: 'Senior Nurse', icon: Activity, color: 'text-emerald-600 bg-emerald-50 hover:bg-emerald-100 border-emerald-200' },
   { role: 'Reception', email: 'receptionist@hms.com', label: 'Front Desk', icon: UserCheck, color: 'text-amber-600 bg-amber-50 hover:bg-amber-100 border-amber-200' },

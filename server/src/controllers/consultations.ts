@@ -5,8 +5,22 @@ export const getConsultations = async (req: Request, res: Response): Promise<voi
   try {
     const { patientId, doctorId, page = '1', limit = '20' } = req.query;
     const skip = (parseInt(page as string) - 1) * parseInt(limit as string);
+    const currentUser = (req as any).user;
     const where: any = {};
-    if (patientId) where.patientId = patientId as string;
+
+    if (currentUser?.role === 'PATIENT') {
+      const patientProfile = await prisma.profilePatient.findUnique({
+        where: { userId: currentUser.id }
+      });
+      if (!patientProfile) {
+        res.json({ consultations: [], total: 0 });
+        return;
+      }
+      where.patientId = patientProfile.id;
+    } else if (patientId) {
+      where.patientId = patientId as string;
+    }
+
     if (doctorId) where.doctorId = doctorId as string;
 
     const [consultations, total] = await Promise.all([

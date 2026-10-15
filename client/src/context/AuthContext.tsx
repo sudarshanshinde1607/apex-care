@@ -7,6 +7,9 @@ export interface User {
   firstName: string;
   lastName: string;
   role: string;
+  patient?: any;
+  doctor?: any;
+  staff?: any;
 }
 
 interface AuthContextType {

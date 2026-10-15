@@ -34,9 +34,23 @@ export const login = async (req: Request, res: Response): Promise<void> => {
       { expiresIn: (process.env.JWT_EXPIRES_IN || '1d') as any }
     );
 
+    const userProfile = await prisma.user.findUnique({
+      where: { id: user.id },
+      select: {
+        id: true,
+        email: true,
+        firstName: true,
+        lastName: true,
+        role: true,
+        patient: true,
+        doctor: true,
+        staff: true
+      }
+    });
+
     res.json({
       token,
-      user: {
+      user: userProfile || {
         id: user.id,
         email: user.email,
         firstName: user.firstName,

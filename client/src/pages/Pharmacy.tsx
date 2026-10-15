@@ -116,7 +116,7 @@ export const Pharmacy: React.FC = () => {
                   <th className="text-left py-3 px-4 font-medium text-muted-foreground">Generic Name</th>
                   <th className="text-left py-3 px-4 font-medium text-muted-foreground">Category</th>
                   <th className="text-left py-3 px-4 font-medium text-muted-foreground">Unit Price</th>
-                  <th className="text-left py-3 px-4 font-medium text-muted-foreground">Total Stock</th>
+                  <th className="text-left py-3 px-4 font-medium text-muted-foreground">Available Quantity</th>
                   <th className="text-left py-3 px-4 font-medium text-muted-foreground">Status</th>
                 </tr>
               </thead>
@@ -126,25 +126,39 @@ export const Pharmacy: React.FC = () => {
                     <td className="py-3 px-4 font-medium">{m.name}</td>
                     <td className="py-3 px-4 text-muted-foreground">{m.genericName ?? '—'}</td>
                     <td className="py-3 px-4">
-                      <span className="text-xs bg-blue-50 text-blue-700 px-2 py-0.5 rounded">{m.category}</span>
+                      <span className="text-xs bg-blue-50 text-blue-700 dark:bg-blue-950/40 dark:text-blue-300 px-2 py-0.5 rounded">{m.category}</span>
                     </td>
                     <td className="py-3 px-4">{formatCurrency(m.unitPrice)}</td>
                     <td className="py-3 px-4">
-                      <span className={m.totalStock < 50 ? 'text-orange-600 font-medium' : ''}>
-                        {m.totalStock}
-                      </span>
+                      <div className="flex items-baseline gap-1.5">
+                        <span className={`text-sm font-bold ${
+                          m.totalStock === 0 ? 'text-destructive' : m.totalStock < 50 ? 'text-amber-600' : 'text-foreground'
+                        }`}>
+                          {m.totalStock}
+                        </span>
+                        <span className="text-xs text-muted-foreground font-medium">
+                          {m.totalStock === 1 ? 'unit available' : 'units available'}
+                        </span>
+                      </div>
+                      {m.batches && m.batches.length > 0 && (
+                        <div className="text-[11px] text-muted-foreground mt-0.5">
+                          {m.batches.length} {m.batches.length === 1 ? 'batch' : 'batches'} in stock
+                        </div>
+                      )}
                     </td>
                     <td className="py-3 px-4">
-                      {m.totalStock === 0 ? (
-                        <span className="text-xs px-2 py-0.5 rounded-full bg-red-100 text-red-700">Out of Stock</span>
-                      ) : m.totalStock < 50 ? (
-                        <span className="text-xs px-2 py-0.5 rounded-full bg-orange-100 text-orange-700">Low Stock</span>
-                      ) : (
-                        <span className="text-xs px-2 py-0.5 rounded-full bg-green-100 text-green-700">In Stock</span>
-                      )}
-                      {m.nearExpiry && (
-                        <span className="ml-1 text-xs px-2 py-0.5 rounded-full bg-red-100 text-red-700">Near Expiry</span>
-                      )}
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        {m.totalStock === 0 ? (
+                          <span className="text-xs px-2.5 py-0.5 rounded-full font-medium bg-red-100 text-red-700 dark:bg-red-950/50 dark:text-red-300">Out of Stock</span>
+                        ) : m.totalStock < 50 ? (
+                          <span className="text-xs px-2.5 py-0.5 rounded-full font-medium bg-orange-100 text-orange-700 dark:bg-orange-950/50 dark:text-orange-300">Low Stock</span>
+                        ) : (
+                          <span className="text-xs px-2.5 py-0.5 rounded-full font-medium bg-green-100 text-green-700 dark:bg-green-950/50 dark:text-green-300">In Stock</span>
+                        )}
+                        {m.nearExpiry && (
+                          <span className="text-xs px-2.5 py-0.5 rounded-full font-medium bg-amber-100 text-amber-800 dark:bg-amber-950/50 dark:text-amber-300">Near Expiry</span>
+                        )}
+                      </div>
                     </td>
                   </tr>
                 ))}

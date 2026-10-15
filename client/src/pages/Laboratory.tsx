@@ -2,8 +2,8 @@ import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useForm } from 'react-hook-form';
 import { labApi, patientsApi } from '../lib/services';
-import { formatDate, getStatusBadgeColor } from '../lib/utils';
-import { Plus, X, FlaskConical, CheckCircle } from 'lucide-react';
+import { formatDate, formatCurrency, getStatusBadgeColor } from '../lib/utils';
+import { Plus, X, FlaskConical, CheckCircle, Eye, Printer, ExternalLink, Activity } from 'lucide-react';
 
 const Modal: React.FC<{ open: boolean; onClose: () => void; title: string; children: React.ReactNode }> = ({ open, onClose, title, children }) => {
   if (!open) return null;
@@ -23,6 +23,7 @@ const Modal: React.FC<{ open: boolean; onClose: () => void; title: string; child
 export const Laboratory: React.FC = () => {
   const [showOrderModal, setShowOrderModal] = useState(false);
   const [showResultModal, setShowResultModal] = useState<string | null>(null);
+  const [viewResultOrder, setViewResultOrder] = useState<any | null>(null);
   const [statusFilter, setStatusFilter] = useState('');
   const queryClient = useQueryClient();
 
@@ -137,27 +138,50 @@ export const Laboratory: React.FC = () => {
                         {order.status.replace(/_/g, ' ')}
                       </span>
                     </td>
-                    <td className="py-3 px-4 text-muted-foreground">
+                    <td className="py-3 px-4">
                       {order.result ? (
-                        <span className="text-xs text-green-700 font-medium">Available</span>
-                      ) : '—'}
+                        <button
+                          type="button"
+                          onClick={() => setViewResultOrder(order)}
+                          className="inline-flex items-center gap-1.5 text-xs bg-emerald-50 hover:bg-emerald-100 text-emerald-700 dark:bg-emerald-950/40 dark:hover:bg-emerald-900/50 dark:text-emerald-300 px-2.5 py-1 rounded-md border border-emerald-200 dark:border-emerald-800 transition-colors font-medium cursor-pointer"
+                          title="Click to view lab report"
+                        >
+                          <CheckCircle className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" />
+                          Available
+                        </button>
+                      ) : (
+                        <span className="text-muted-foreground text-xs">Pending</span>
+                      )}
                     </td>
                     <td className="py-3 px-4">
-                      <div className="flex gap-1">
+                      <div className="flex items-center gap-1.5">
+                        {order.result && (
+                          <button
+                            type="button"
+                            onClick={() => setViewResultOrder(order)}
+                            className="inline-flex items-center gap-1.5 text-xs px-2.5 py-1 bg-primary/10 hover:bg-primary/20 text-primary font-medium rounded-lg transition-colors cursor-pointer"
+                            title="View test report"
+                          >
+                            <Eye className="h-3.5 w-3.5" />
+                            View Report
+                          </button>
+                        )}
                         {order.status === 'PENDING' && (
                           <button
+                            type="button"
                             onClick={() => statusMutation.mutate({ id: order.id, status: 'SAMPLE_COLLECTED' })}
-                            className="text-xs px-2 py-1 bg-blue-50 text-blue-700 rounded hover:bg-blue-100"
+                            className="inline-flex items-center gap-1 text-xs px-2.5 py-1 bg-blue-50 text-blue-700 hover:bg-blue-100 dark:bg-blue-950/40 dark:text-blue-300 rounded-md font-medium transition-colors cursor-pointer"
                           >
                             Collect Sample
                           </button>
                         )}
                         {order.status === 'SAMPLE_COLLECTED' && (
                           <button
+                            type="button"
                             onClick={() => setShowResultModal(order.id)}
-                            className="text-xs px-2 py-1 bg-green-50 text-green-700 rounded hover:bg-green-100 flex items-center gap-1"
+                            className="inline-flex items-center gap-1 text-xs px-2.5 py-1 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 dark:bg-emerald-950/40 dark:text-emerald-300 rounded-md font-medium transition-colors cursor-pointer"
                           >
-                            <CheckCircle className="h-3 w-3" /> Enter Result
+                            <CheckCircle className="h-3.5 w-3.5" /> Enter Result
                           </button>
                         )}
                       </div>
@@ -169,6 +193,142 @@ export const Laboratory: React.FC = () => {
           </div>
         )}
       </div>
+
+      {/* View Lab Report Modal */}
+      <Modal
+        open={!!viewResultOrder}
+        onClose={() => setViewResultOrder(null)}
+        title="Diagnostic Laboratory Report"
+      >
+        {viewResultOrder && (() => {
+          let parsedData: any = null;
+          try {
+            parsedData = JSON.parse(viewResultOrder.result?.resultData || '');
+          } catch {
+            parsedData = null;
+          }
+
+          return (
+            <div className="space-y-5">
+              {/* Patient & Test Overview */}
+              <div className="rounded-xl border border-border bg-muted/20 p-4">
+                <div className="grid grid-cols-2 gap-4 pb-3 border-b border-border">
+                  <div>
+                    <span className="text-[11px] uppercase font-semibold text-muted-foreground block">Patient</span>
+                    <p className="font-bold text-foreground text-sm">
+                      {viewResultOrder.patient?.user?.firstName} {viewResultOrder.patient?.user?.lastName}
+                    </p>
+                    <p className="text-xs text-muted-foreground font-mono">{viewResultOrder.patient?.patientId || '—'}</p>
+                  </div>
+                  <div>
+                    <span className="text-[11px] uppercase font-semibold text-muted-foreground block">Test Name</span>
+                    <p className="font-bold text-foreground text-sm flex items-center gap-1.5">
+                      <FlaskConical className="h-4 w-4 text-primary" />
+                      {viewResultOrder.test?.name}
+                    </p>
+                    <span className="text-xs text-muted-foreground">Price: {formatCurrency(viewResultOrder.test?.price)}</span>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4 pt-3 text-xs">
+                  <div>
+                    <span className="text-muted-foreground">Order Date:</span>{' '}
+                    <span className="font-medium text-foreground">{formatDate(viewResultOrder.orderDate)}</span>
+                  </div>
+                  <div>
+                    <span className="text-muted-foreground">Report Status:</span>{' '}
+                    <span className="font-semibold text-emerald-600 dark:text-emerald-400">Verified & Available</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Lab Result Details */}
+              <div>
+                <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2.5 flex items-center gap-1.5">
+                  <Activity className="h-3.5 w-3.5 text-primary" />
+                  Test Results & Findings
+                </h4>
+
+                {parsedData && typeof parsedData === 'object' ? (
+                  <div className="rounded-xl border border-border overflow-hidden bg-card">
+                    <table className="w-full text-xs">
+                      <thead className="bg-muted/40 border-b border-border text-muted-foreground font-semibold">
+                        <tr>
+                          <th className="py-2.5 px-3 text-left">Test Parameter</th>
+                          <th className="py-2.5 px-3 text-left">Observed Value</th>
+                          <th className="py-2.5 px-3 text-left">Reference Range</th>
+                          <th className="py-2.5 px-3 text-left">Interpretation</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        <tr className="border-b border-border/60">
+                          <td className="py-3 px-3 font-medium text-foreground">{viewResultOrder.test?.name}</td>
+                          <td className="py-3 px-3 font-mono font-bold text-sm text-foreground">
+                            {parsedData.value || '—'}
+                          </td>
+                          <td className="py-3 px-3 text-muted-foreground">
+                            {parsedData.normalRange || '—'}
+                          </td>
+                          <td className="py-3 px-3">
+                            <span className={`inline-flex px-2 py-0.5 rounded-full font-medium text-xs ${
+                              parsedData.interpretation?.toLowerCase().includes('abnormal') || parsedData.interpretation?.toLowerCase().includes('high')
+                                ? 'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300'
+                                : 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300'
+                            }`}>
+                              {parsedData.interpretation || 'Normal'}
+                            </span>
+                          </td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                ) : (
+                  <div className="rounded-xl border border-border bg-card p-4">
+                    <p className="text-xs font-medium text-muted-foreground mb-1 uppercase tracking-wide">Result Findings</p>
+                    <p className="text-sm text-foreground whitespace-pre-wrap leading-relaxed">
+                      {viewResultOrder.result?.resultData || 'No specific text observations recorded.'}
+                    </p>
+                  </div>
+                )}
+              </div>
+
+              {/* External Report Link if present */}
+              {viewResultOrder.result?.reportUrl && (
+                <div className="p-3 rounded-lg border border-border bg-muted/30 flex items-center justify-between text-xs">
+                  <span className="text-muted-foreground">External Attachment / PDF:</span>
+                  <a
+                    href={viewResultOrder.result.reportUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1 font-semibold text-primary hover:underline"
+                  >
+                    Open Full PDF <ExternalLink className="h-3 w-3" />
+                  </a>
+                </div>
+              )}
+
+              {/* Actions */}
+              <div className="flex items-center justify-between pt-3 border-t border-border">
+                <button
+                  type="button"
+                  onClick={() => window.print()}
+                  className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-medium rounded-lg border border-border hover:bg-muted transition-colors text-muted-foreground hover:text-foreground cursor-pointer"
+                >
+                  <Printer className="h-3.5 w-3.5" />
+                  Print Report
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setViewResultOrder(null)}
+                  className="px-4 py-2 text-xs font-medium rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 transition-colors cursor-pointer"
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+          );
+        })()}
+      </Modal>
 
       {/* New Order Modal */}
       <Modal open={showOrderModal} onClose={() => { setShowOrderModal(false); resetOrder(); }} title="New Lab Order">
